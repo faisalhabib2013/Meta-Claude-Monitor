@@ -1,0 +1,15 @@
+{
+  "products": [
+    { "name": "الفم", "maxCpp": 80 },
+	{ "name": "النوم", "maxCpp": 75 },
+    { "name": "فطريات", "maxCpp": 110 },
+    { "name": "الجيوب", "maxCpp": 110 },
+    { "name": "طنين", "maxCpp": 85 },
+    { "name": "التمدد", "maxCpp": 80 },
+    { "name": "البواسير", "maxCpp": 85 },
+    { "name": "كريم ازالة", "maxCpp": 85 },
+    { "name": "قلم", "maxCpp": 85 },
+    { "name": "الظفر", "maxCpp": 100 },
+    { "name": "خرز", "maxCpp": 55 }
+  ]
+}
