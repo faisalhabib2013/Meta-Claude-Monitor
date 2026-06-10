@@ -1,7 +1,7 @@
 {
   "products": [
     { "name": "الفم", "maxCpp": 80 },
-	{ "name": "النوم", "maxCpp": 75 },
+	{ "name": "نوم", "maxCpp": 75 },
     { "name": "فطريات", "maxCpp": 110 },
     { "name": "الجيوب", "maxCpp": 110 },
     { "name": "طنين", "maxCpp": 85 },
