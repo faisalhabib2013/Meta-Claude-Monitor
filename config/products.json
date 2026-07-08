@@ -10,7 +10,7 @@
     { "name": "كريم ازالة", "maxCpp": 85 },
     { "name": "قلم", "maxCpp": 90 },
     { "name": "ظفر", "maxCpp": 110 },
-    { "name": "خرز", "maxCpp": 55 }
+    { "name": "خرز", "maxCpp": 55 },
 	{ "name": "عين", "maxCpp": 70 },
 	{ "name": "تنميل", "maxCpp": 110 },
   ]
