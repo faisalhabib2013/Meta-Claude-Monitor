@@ -1,15 +1,17 @@
 {
   "products": [
-    { "name": "الفم", "maxCpp": 80 },
+    { "name": "الفم", "maxCpp": 85 },
 	{ "name": "نوم", "maxCpp": 75 },
-    { "name": "فطريات", "maxCpp": 110 },
-    { "name": "الجيوب", "maxCpp": 110 },
-    { "name": "طنين", "maxCpp": 85 },
+    { "name": "فطريات", "maxCpp": 125 },
+    { "name": "الجيوب", "maxCpp": 125 },
+    { "name": "طنين", "maxCpp": 100 },
     { "name": "التمدد", "maxCpp": 80 },
-    { "name": "البواسير", "maxCpp": 85 },
+    { "name": "البواسير", "maxCpp": 110	},
     { "name": "كريم ازالة", "maxCpp": 85 },
-    { "name": "قلم", "maxCpp": 85 },
-    { "name": "الظفر", "maxCpp": 100 },
+    { "name": "قلم", "maxCpp": 90 },
+    { "name": "ظفر", "maxCpp": 110 },
     { "name": "خرز", "maxCpp": 55 }
+	{ "name": "عين", "maxCpp": 70 },
+	{ "name": "تنميل", "maxCpp": 110 },
   ]
 }
