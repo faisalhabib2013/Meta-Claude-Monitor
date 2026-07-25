@@ -51,53 +51,55 @@ function initBot() {
     await sendStatusMessage(msg.chat.id);
   });
 
-  // /help — قائمة بكل الأوامر المتاحة
+  // /help — قائمة بكل الأوامر المتاحة (نص عادي بدون Markdown لضمان الوصول)
   bot.onText(/\/help/, async (msg) => {
     const chatId = String(msg.chat.id);
     const helpText =
-`🤖 *Meta & TikTok Ads Monitor*
-_قائمة الأوامر المتاحة_
+`🤖 Meta & TikTok Ads Monitor
+قائمة الأوامر المتاحة
 
-📊 *المتابعة والأداء*
+📊 المتابعة والأداء
 /status — حالة النظام وأداء اليوم
 /top — أفضل 3 منتجات أداءً اليوم
 /worst — أسوأ 3 منتجات أداءً اليوم
 /budget — إجمالي الإنفاق + توقع نهاية اليوم
 
-🔍 *تفاصيل المنتجات*
-/product [اسم] — أداء المنتج per adset آخر 3 أيام
-/week [اسم] — أداء المنتج per adset آخر 7 أيام
+🔍 تفاصيل المنتجات
+/product اسم — أداء المنتج per adset آخر 3 أيام
+/week اسم — أداء المنتج per adset آخر 7 أيام
 
-⚙️ *التحكم في الحملات*
-/pause\_product [اسم] — إيقاف كل Ad Sets لمنتج
-[أزرار الإيقاف والميزانية تظهر في التنبيهات]
+⚙️ التحكم في الحملات
+/pause_product اسم — إيقاف كل Ad Sets لمنتج
+(أزرار الإيقاف والميزانية تظهر في التنبيهات)
 
-🤖 *المساعد الذكي*
-/ask [سؤال] — اسأل عن أي حملة أو اطلب إجراء
-_مثال: /ask ايه رأيك في أداء خرز النهارده؟_
-_مثال: /ask اقفل أسوأ adset في الفم_
+🤖 المساعد الذكي
+/ask سؤال — اسأل عن أي حملة أو اطلب إجراء
+مثال: /ask ايه رأيك في أداء خرز النهارده؟
 
-🛠 *إدارة الإعدادات*
+🛠 إدارة الإعدادات
 /products — قائمة المنتجات وحدودها
-/add\_product [اسم] [حد] — إضافة منتج
-/edit\_cpp [اسم] [حد] — تعديل Max CPP
-/remove\_product [اسم] — حذف منتج
+/add_product اسم حد — إضافة منتج
+/edit_cpp اسم حد — تعديل Max CPP
+/remove_product اسم — حذف منتج
+/add_alias منتج = اسم-بديل — ربط اسم إضافي بمنتج
+/remove_alias منتج = اسم-بديل — حذف اسم بديل
 /accounts — قائمة الحسابات
-/add\_account meta|tiktok [ID] — إضافة حساب
-/remove\_account meta|tiktok [ID] — إزالة حساب
+/add_account meta أو tiktok ثم ID — إضافة حساب
+/remove_account meta أو tiktok ثم ID — إزالة حساب
 /settings — عرض إعدادات المراقبة
-/set [إعداد] [قيمة] — تعديل إعداد
+/set إعداد قيمة — تعديل إعداد
 
-🔄 *النظام*
+🔄 النظام
 /check — تشغيل دورة فحص فورية الآن
 /help — عرض هذه القائمة
 
-💡 *مثال:*
+💡 أمثلة:
 /product خرز
-/week الفم
-/pause\_product البواسير`;
+/edit_cpp خرز 65
+/set cooldown 4`;
 
-    await sendTo(chatId, helpText);
+    const b = getBot();
+    await b.sendMessage(chatId, helpText); // بدون parse_mode — مضمون الوصول
   });
 
   // /check — تشغيل دورة فحص فورية
@@ -217,8 +219,11 @@ _مثال: /ask اقفل أسوأ adset في الفم_
     let text = `📦 *المنتجات المسجلة (${products.length})*\n\n`;
     products.forEach((p, i) => {
       text += `${i + 1}. ${p.name} — Max CPP: *${p.maxCpp} ج.م*\n`;
+      if (p.aliases && p.aliases.length) {
+        text += `   ↳ أسماء بديلة: ${p.aliases.join(' ، ')}\n`;
+      }
     });
-    text += `\n💡 /add_product [اسم] [حد] لإضافة منتج`;
+    text += `\n💡 /add_product اسم حد — لإضافة منتج`;
     await sendTo(String(msg.chat.id), text);
   });
 
@@ -229,7 +234,7 @@ _مثال: /ask اقفل أسوأ adset في الفم_
     const maxCpp = parseFloat(tokens[tokens.length - 1]);
     const name = tokens.slice(0, -1).join(' ');
     if (isNaN(maxCpp) || !name) {
-      return sendTo(chatId, '❌ الصيغة: /add_product [اسم المنتج] [الحد]\nمثال: /add_product خرز جديد 60');
+      return sendTo(chatId, '❌ الصيغة: /add_product اسم-المنتج الحد\nمثال: /add_product خرز جديد 60');
     }
     const store = require('../configStore');
     const result = store.addProduct(name, maxCpp);
@@ -247,7 +252,7 @@ _مثال: /ask اقفل أسوأ adset في الفم_
     const maxCpp = parseFloat(tokens[tokens.length - 1]);
     const name = tokens.slice(0, -1).join(' ');
     if (isNaN(maxCpp) || !name) {
-      return sendTo(chatId, '❌ الصيغة: /edit_cpp [اسم المنتج] [الحد الجديد]\nمثال: /edit_cpp خرز 65');
+      return sendTo(chatId, '❌ الصيغة: /edit_cpp اسم-المنتج الحد-الجديد\nمثال: /edit_cpp خرز 65');
     }
     const store = require('../configStore');
     const result = store.editCpp(name, maxCpp);
@@ -277,6 +282,46 @@ _مثال: /ask اقفل أسوأ adset في الفم_
     );
   });
 
+  // /add_alias [منتج] = [اسم بديل] — ربط اسم إضافي بمنتج موجود
+  bot.onText(/\/add_alias (.+)/, async (msg, match) => {
+    const chatId = String(msg.chat.id);
+    const parts = match[1].split('=');
+    if (parts.length !== 2) {
+      return sendTo(chatId,
+        '❌ الصيغة: /add_alias اسم-المنتج = الاسم-البديل\n' +
+        'مثال: /add_alias كريم ازالة = wart cream'
+      );
+    }
+    const store = require('../configStore');
+    const result = store.addAlias(parts[0].trim(), parts[1].trim());
+    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
+    await sendTo(chatId,
+      `✅ *تم إضافة اسم بديل*\n\n📦 ${result.name}\n➕ "${result.alias}"\n\n` +
+      `الأسماء البديلة الآن: ${result.aliases.join(' ، ')}\n` +
+      `🔄 أي حملة تحتوي أياً منها ستُنسب لهذا المنتج من الدورة القادمة.`
+    );
+  });
+
+  // /remove_alias [منتج] = [اسم بديل]
+  bot.onText(/\/remove_alias (.+)/, async (msg, match) => {
+    const chatId = String(msg.chat.id);
+    const parts = match[1].split('=');
+    if (parts.length !== 2) {
+      return sendTo(chatId,
+        '❌ الصيغة: /remove_alias اسم-المنتج = الاسم-البديل\n' +
+        'مثال: /remove_alias كريم ازالة = wart cream'
+      );
+    }
+    const store = require('../configStore');
+    const result = store.removeAlias(parts[0].trim(), parts[1].trim());
+    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
+    const remaining = result.aliases.length ? result.aliases.join(' ، ') : 'لا يوجد';
+    await sendTo(chatId,
+      `✅ *تم حذف الاسم البديل*\n\n📦 ${result.name}\n➖ "${result.alias}"\n\n` +
+      `الأسماء البديلة المتبقية: ${remaining}`
+    );
+  });
+
   // /accounts — قائمة الحسابات
   bot.onText(/\/accounts/, async (msg) => {
     const store = require('../configStore');
@@ -286,7 +331,7 @@ _مثال: /ask اقفل أسوأ adset في الفم_
     acc.meta.forEach(id => { text += `• ${id}\n`; });
     text += `\n🎵 *TikTok (${acc.tiktok.length}):*\n`;
     acc.tiktok.forEach(id => { text += `• ${id}\n`; });
-    text += `\n💡 /add_account meta [ID] أو /add_account tiktok [ID]`;
+    text += `\n💡 /add_account meta ID أو /add_account tiktok ID`;
     await sendTo(String(msg.chat.id), text);
   });
 
@@ -333,7 +378,7 @@ _مثال: /ask اقفل أسوأ adset في الفم_
     text += `📊 buffer: ${s.bufferPct}% من Max CPP\n`;
     text += `🛒 min-purchases: ${s.minPurchases}\n`;
     text += `💸 high-spend: ${s.highSpendPct}%\n\n`;
-    text += `💡 للتعديل: /set [الإعداد] [القيمة]\nمثال: /set cooldown 4`;
+    text += `💡 للتعديل: /set الإعداد القيمة\nمثال: /set cooldown 4`;
     await sendTo(String(msg.chat.id), text);
   });
 

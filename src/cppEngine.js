@@ -16,11 +16,14 @@ function loadProducts() {
   return require('../config/products.json').products;
 }
 
-// إيجاد المنتج المناسب لاسم حملة معين
+// إيجاد المنتج المناسب لاسم حملة معين — يدعم الأسماء البديلة (aliases)
 function matchProduct(campaignName, products) {
   if (!campaignName) return null;
-  const lowerName = campaignName.toLowerCase();
-  return products.find(p => campaignName.includes(p.name)) || null;
+  const lowerCampaign = campaignName.toLowerCase();
+  return products.find(p =>
+    campaignName.includes(p.name) ||
+    (p.aliases || []).some(a => a && lowerCampaign.includes(String(a).toLowerCase()))
+  ) || null;
 }
 
 // تتبع الحملات غير المطابقة (لمساعدة في الـ Debug)

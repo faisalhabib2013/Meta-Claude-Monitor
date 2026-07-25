@@ -150,8 +150,51 @@ function removeProduct(name) {
 function findProduct(name) {
   const products = getProducts();
   return products.find(p => p.name === name)
+    || products.find(p => (p.aliases || []).includes(name))
     || products.find(p => p.name.includes(name) || name.includes(p.name))
     || null;
+}
+
+// ==================== الأسماء البديلة (Aliases) ====================
+
+function addAlias(productQuery, alias) {
+  alias = String(alias).trim();
+  if (!alias) return { ok: false, error: 'الاسم البديل فارغ' };
+
+  const products = getProducts();
+  let product = products.find(p => p.name === productQuery)
+    || products.find(p => p.name.includes(productQuery) || productQuery.includes(p.name));
+  if (!product) return { ok: false, error: `لم أجد منتجاً باسم "${productQuery}"` };
+
+  if (products.some(p => p.name === alias)) {
+    return { ok: false, error: 'الاسم البديل مطابق لاسم منتج موجود بالفعل' };
+  }
+  const clash = products.find(p => (p.aliases || []).includes(alias));
+  if (clash) return { ok: false, error: `الاسم البديل مستخدم بالفعل للمنتج "${clash.name}"` };
+
+  product.aliases = product.aliases || [];
+  if (product.aliases.includes(alias)) return { ok: false, error: 'الاسم البديل موجود بالفعل' };
+
+  product.aliases.push(alias);
+  saveProducts(products);
+  logger.success(`Alias added: "${alias}" → ${product.name}`);
+  return { ok: true, name: product.name, alias, aliases: product.aliases };
+}
+
+function removeAlias(productQuery, alias) {
+  alias = String(alias).trim();
+  const products = getProducts();
+  let product = products.find(p => p.name === productQuery)
+    || products.find(p => p.name.includes(productQuery) || productQuery.includes(p.name));
+  if (!product) return { ok: false, error: `لم أجد منتجاً باسم "${productQuery}"` };
+
+  if (!(product.aliases || []).includes(alias)) {
+    return { ok: false, error: `"${alias}" ليس اسماً بديلاً للمنتج "${product.name}"` };
+  }
+  product.aliases = product.aliases.filter(a => a !== alias);
+  saveProducts(products);
+  logger.warn(`Alias removed: "${alias}" from ${product.name}`);
+  return { ok: true, name: product.name, alias, aliases: product.aliases };
 }
 
 // ==================== الحسابات ====================
@@ -253,6 +296,7 @@ function getSettingsView() {
 
 module.exports = {
   init, getProducts, addProduct, editCpp, removeProduct, findProduct,
+  addAlias, removeAlias,
   getAccounts, addAccount, removeAccount,
   setSetting, getSettingsView, SETTING_DEFS
 };
