@@ -26,6 +26,10 @@ function initBot() {
     logger.error('Telegram polling error', err);
   });
 
+  // تهيئة مخزن الإعدادات الديناميكي (منتجات/حسابات من قاعدة البيانات)
+  try { require('../configStore').init(); }
+  catch (e) { logger.error('ConfigStore init error', e); }
+
   // معالجة /start
   bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
@@ -72,6 +76,17 @@ _قائمة الأوامر المتاحة_
 /ask [سؤال] — اسأل عن أي حملة أو اطلب إجراء
 _مثال: /ask ايه رأيك في أداء خرز النهارده؟_
 _مثال: /ask اقفل أسوأ adset في الفم_
+
+🛠 *إدارة الإعدادات*
+/products — قائمة المنتجات وحدودها
+/add\_product [اسم] [حد] — إضافة منتج
+/edit\_cpp [اسم] [حد] — تعديل Max CPP
+/remove\_product [اسم] — حذف منتج
+/accounts — قائمة الحسابات
+/add\_account meta|tiktok [ID] — إضافة حساب
+/remove\_account meta|tiktok [ID] — إزالة حساب
+/settings — عرض إعدادات المراقبة
+/set [إعداد] [قيمة] — تعديل إعداد
 
 🔄 *النظام*
 /check — تشغيل دورة فحص فورية الآن
@@ -192,6 +207,148 @@ _مثال: /ask اقفل أسوأ adset في الفم_
     }
   });
 
+  // ==================== أوامر إدارة الإعدادات ====================
+
+  // /products — قائمة المنتجات الحالية
+  bot.onText(/\/products/, async (msg) => {
+    const store = require('../configStore');
+    const products = store.getProducts();
+    if (!products.length) return sendTo(String(msg.chat.id), '📦 لا توجد منتجات مسجلة.');
+    let text = `📦 *المنتجات المسجلة (${products.length})*\n\n`;
+    products.forEach((p, i) => {
+      text += `${i + 1}. ${p.name} — Max CPP: *${p.maxCpp} ج.م*\n`;
+    });
+    text += `\n💡 /add_product [اسم] [حد] لإضافة منتج`;
+    await sendTo(String(msg.chat.id), text);
+  });
+
+  // /add_product [اسم المنتج] [maxCpp]
+  bot.onText(/\/add_product (.+)/, async (msg, match) => {
+    const chatId = String(msg.chat.id);
+    const tokens = match[1].trim().split(/\s+/);
+    const maxCpp = parseFloat(tokens[tokens.length - 1]);
+    const name = tokens.slice(0, -1).join(' ');
+    if (isNaN(maxCpp) || !name) {
+      return sendTo(chatId, '❌ الصيغة: /add_product [اسم المنتج] [الحد]\nمثال: /add_product خرز جديد 60');
+    }
+    const store = require('../configStore');
+    const result = store.addProduct(name, maxCpp);
+    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
+    await sendTo(chatId,
+      `✅ *تم إضافة المنتج*\n\n📦 ${result.name}\n💰 Max CPP: ${result.maxCpp} ج.م\n\n` +
+      `إجمالي المنتجات: ${result.total}\n🔄 المراقبة تشمله من الدورة القادمة تلقائياً.`
+    );
+  });
+
+  // /edit_cpp [اسم المنتج] [maxCpp الجديد]
+  bot.onText(/\/edit_cpp (.+)/, async (msg, match) => {
+    const chatId = String(msg.chat.id);
+    const tokens = match[1].trim().split(/\s+/);
+    const maxCpp = parseFloat(tokens[tokens.length - 1]);
+    const name = tokens.slice(0, -1).join(' ');
+    if (isNaN(maxCpp) || !name) {
+      return sendTo(chatId, '❌ الصيغة: /edit_cpp [اسم المنتج] [الحد الجديد]\nمثال: /edit_cpp خرز 65');
+    }
+    const store = require('../configStore');
+    const result = store.editCpp(name, maxCpp);
+    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
+    await sendTo(chatId,
+      `✅ *تم تعديل الحد*\n\n📦 ${result.name}\n💰 ${result.oldCpp} ج.م ← *${result.maxCpp} ج.م*`
+    );
+  });
+
+  // /remove_product [اسم المنتج] — بتأكيد
+  bot.onText(/\/remove_product (.+)/, async (msg, match) => {
+    const chatId = String(msg.chat.id);
+    const name = match[1].trim();
+    const store = require('../configStore');
+    const product = store.findProduct(name);
+    if (!product) return sendTo(chatId, `❌ لم أجد منتجاً باسم "${name}"`);
+
+    const ctxKey = storeContext({ cfgAction: 'rmprod', name: product.name });
+    const keyboard = { inline_keyboard: [[
+      { text: '✅ تأكيد الحذف', callback_data: `cfgstore:${ctxKey}` },
+      { text: '❌ إلغاء', callback_data: 'cancel' }
+    ]]};
+    await sendTo(chatId,
+      `⚠️ *تأكيد حذف المنتج*\n\n📦 ${product.name} (Max CPP: ${product.maxCpp})\n\n` +
+      `سيتوقف النظام عن مراقبة حملاته.`,
+      { reply_markup: keyboard }
+    );
+  });
+
+  // /accounts — قائمة الحسابات
+  bot.onText(/\/accounts/, async (msg) => {
+    const store = require('../configStore');
+    const acc = store.getAccounts();
+    let text = `🏦 *الحسابات المسجلة*\n\n`;
+    text += `🔵 *Meta (${acc.meta.length}):*\n`;
+    acc.meta.forEach(id => { text += `• ${id}\n`; });
+    text += `\n🎵 *TikTok (${acc.tiktok.length}):*\n`;
+    acc.tiktok.forEach(id => { text += `• ${id}\n`; });
+    text += `\n💡 /add_account meta [ID] أو /add_account tiktok [ID]`;
+    await sendTo(String(msg.chat.id), text);
+  });
+
+  // /add_account [meta|tiktok] [ID]
+  bot.onText(/\/add_account (meta|tiktok) (\d+)/, async (msg, match) => {
+    const chatId = String(msg.chat.id);
+    const store = require('../configStore');
+    const result = store.addAccount(match[1], match[2]);
+    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
+    await sendTo(chatId,
+      `✅ *تم إضافة حساب ${result.platform}*\n\n🆔 ${result.id}\n` +
+      `إجمالي حسابات ${result.platform}: ${result.total}\n\n` +
+      `🔄 المراقبة تشمله من الدورة القادمة — جرّب /check للفحص الفوري.`
+    );
+  });
+
+  // /remove_account [meta|tiktok] [ID] — بتأكيد
+  bot.onText(/\/remove_account (meta|tiktok) (\d+)/, async (msg, match) => {
+    const chatId = String(msg.chat.id);
+    const platform = match[1];
+    const id = match[2];
+    const ctxKey = storeContext({ cfgAction: 'rmacct', platform, id });
+    const keyboard = { inline_keyboard: [[
+      { text: '✅ تأكيد الإزالة', callback_data: `cfgstore:${ctxKey}` },
+      { text: '❌ إلغاء', callback_data: 'cancel' }
+    ]]};
+    await sendTo(chatId,
+      `⚠️ *تأكيد إزالة حساب ${platform === 'meta' ? 'Meta' : 'TikTok'}*\n\n🆔 ${id}\n\n` +
+      `سيتوقف النظام عن مراقبة حملاته.`,
+      { reply_markup: keyboard }
+    );
+  });
+
+  // /settings — عرض الإعدادات الحالية
+  bot.onText(/\/settings/, async (msg) => {
+    const store = require('../configStore');
+    const s = store.getSettingsView();
+    let text = `⚙️ *إعدادات النظام الحالية*\n\n`;
+    text += `📦 المنتجات: ${s.products}\n`;
+    text += `🔵 حسابات Meta: ${s.metaAccounts.length}\n`;
+    text += `🎵 حسابات TikTok: ${s.tiktokAdvertisers.length}\n\n`;
+    text += `⏱ الفحص كل: ${s.intervalMin} دقيقة _(ثابت)_\n`;
+    text += `🔕 cooldown: ${s.cooldownHours} ساعة\n`;
+    text += `📊 buffer: ${s.bufferPct}% من Max CPP\n`;
+    text += `🛒 min-purchases: ${s.minPurchases}\n`;
+    text += `💸 high-spend: ${s.highSpendPct}%\n\n`;
+    text += `💡 للتعديل: /set [الإعداد] [القيمة]\nمثال: /set cooldown 4`;
+    await sendTo(String(msg.chat.id), text);
+  });
+
+  // /set [إعداد] [قيمة]
+  bot.onText(/\/set (\w+) ([\d.]+)/, async (msg, match) => {
+    const chatId = String(msg.chat.id);
+    const store = require('../configStore');
+    const result = store.setSetting(match[1], match[2]);
+    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
+    await sendTo(chatId,
+      `✅ *تم تحديث الإعداد*\n\n${result.label}: *${result.value} ${result.unit}*\n\n` +
+      `🔄 مُطبَّق فوراً على الدورات القادمة.`
+    );
+  });
+
   // معالجة رسائل نصية (للـ custom budget input)
   bot.on('message', (msg) => {
     if (msg.text && !msg.text.startsWith('/')) {
@@ -287,11 +444,18 @@ async function handleTextInput(msg) {
 
 // معالجة callback queries (ضغطات الأزرار)
 async function handleCallbackQuery(query) {
-  const { handleCallback } = require('./handlers');
   const bot = getBot();
 
   try {
     await bot.answerCallbackQuery(query.id);
+
+    // أزرار إدارة الإعدادات (حذف منتج / إزالة حساب)
+    if ((query.data || '').startsWith('cfgstore:')) {
+      await handleConfigStoreCallback(query);
+      return;
+    }
+
+    const { handleCallback } = require('./handlers');
     await handleCallback(query);
   } catch (err) {
     logger.error('Callback query error', err);
@@ -300,6 +464,35 @@ async function handleCallbackQuery(query) {
       show_alert: true
     }).catch(() => {});
   }
+}
+
+// تنفيذ أزرار تأكيد إدارة الإعدادات
+async function handleConfigStoreCallback(query) {
+  const chatId = String(query.message.chat.id);
+  const messageId = query.message.message_id;
+  const key = query.data.replace('cfgstore:', '');
+  const ctx = getContext(key);
+  if (!ctx) return sendTo(chatId, '❌ انتهت صلاحية هذا الطلب.');
+
+  const store = require('../configStore');
+
+  if (ctx.cfgAction === 'rmprod') {
+    const result = store.removeProduct(ctx.name);
+    const text = result.ok
+      ? `✅ *تم حذف المنتج*\n\n📦 ${result.name}\nالمنتجات المتبقية: ${result.remaining}`
+      : `❌ ${result.error}`;
+    return editMessage(chatId, messageId, text);
+  }
+
+  if (ctx.cfgAction === 'rmacct') {
+    const result = store.removeAccount(ctx.platform, ctx.id);
+    const text = result.ok
+      ? `✅ *تمت إزالة حساب ${result.platform}*\n\n🆔 ${result.id}\nالحسابات المتبقية: ${result.remaining}`
+      : `❌ ${result.error}`;
+    return editMessage(chatId, messageId, text);
+  }
+
+  return sendTo(chatId, '❌ إجراء غير معروف.');
 }
 
 // إرسال رسالة لكل الـ Chat IDs المسجلة
