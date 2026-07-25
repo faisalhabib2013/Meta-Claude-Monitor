@@ -213,22 +213,50 @@ function getBot() {
   return bot;
 }
 
-// تخزين سياق الأزرار وإرجاع مفتاح قصير
+// تخزين سياق الأزرار — في الذاكرة + قاعدة البيانات (يعيش بعد الـ restart)
 function storeContext(data) {
-  const key = `c${++ctxCounter}`;
-  actionContext.set(key, { ...data, timestamp: Date.now() });
+  // مفتاح فريد حتى بعد إعادة التشغيل (timestamp-based)
+  const key = `c${Date.now().toString(36)}${++ctxCounter}`;
+  const record = { ...data, timestamp: Date.now() };
+  actionContext.set(key, record);
 
-  // تنظيف السياق القديم (أكبر من 24 ساعة)
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  // حفظ دائم في قاعدة البيانات
+  try {
+    const db = require('../db');
+    db.setState(`ctx:${key}`, JSON.stringify(record));
+
+    // تنظيف السياقات الأقدم من 48 ساعة
+    const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+    for (const k of db.getStateKeys('ctx:')) {
+      try {
+        const v = JSON.parse(db.getState(k) || '{}');
+        if (!v.timestamp || v.timestamp < cutoff) db.deleteState(k);
+      } catch { db.deleteState(k); }
+    }
+  } catch (e) { /* الذاكرة تكفي كـ fallback */ }
+
+  // تنظيف الذاكرة
+  const memCutoff = Date.now() - 24 * 60 * 60 * 1000;
   for (const [k, v] of actionContext.entries()) {
-    if (v.timestamp < cutoff) actionContext.delete(k);
+    if (v.timestamp < memCutoff) actionContext.delete(k);
   }
 
   return key;
 }
 
 function getContext(key) {
-  return actionContext.get(key) || null;
+  // الذاكرة أولاً، ثم قاعدة البيانات (بعد الـ restart)
+  if (actionContext.has(key)) return actionContext.get(key);
+  try {
+    const db = require('../db');
+    const v = db.getState(`ctx:${key}`);
+    if (v) {
+      const record = JSON.parse(v);
+      actionContext.set(key, record); // إعادة للذاكرة
+      return record;
+    }
+  } catch (e) {}
+  return null;
 }
 
 // حالة المستخدم (للمدخلات متعددة الخطوات)

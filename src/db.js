@@ -282,11 +282,23 @@ function setState(key, value) {
   mutate(db => { db.system_state[key] = String(value); });
 }
 
+// قائمة مفاتيح system_state التي تبدأ بـ prefix معين
+function getStateKeys(prefix = '') {
+  const db = getDb();
+  return Object.keys(db.system_state).filter(k => k.startsWith(prefix));
+}
+
+// حذف مفتاح من system_state
+function deleteState(key) {
+  mutate(db => { delete db.system_state[key]; });
+}
+
 module.exports = {
   getDb, upsertDailyMetrics, getDailyMetricsByProduct,
   getAllProductsToday, getAllAdsetMetricsToday,
   wasAlertedRecently, wasAlertedToday, wasScaleAlertedRecently,
   logAlert, recordBreach, getRecentBreaches, markAnalysisDone,
   getProductsNeedingAnalysis, getState, setState,
-  getProductSummaryForDate, getAdsetHistory
+  getProductSummaryForDate, getAdsetHistory,
+  getStateKeys, deleteState
 };
