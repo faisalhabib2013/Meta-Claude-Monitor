@@ -216,15 +216,15 @@ function initBot() {
     const store = require('../configStore');
     const products = store.getProducts();
     if (!products.length) return sendTo(String(msg.chat.id), '📦 لا توجد منتجات مسجلة.');
-    let text = `📦 *المنتجات المسجلة (${products.length})*\n\n`;
+    let text = `📦 المنتجات المسجلة (${products.length})\n\n`;
     products.forEach((p, i) => {
-      text += `${i + 1}. ${p.name} — Max CPP: *${p.maxCpp} ج.م*\n`;
+      text += `${i + 1}. ${p.name} — Max CPP: ${p.maxCpp} ج.م\n`;
       if (p.aliases && p.aliases.length) {
         text += `   ↳ أسماء بديلة: ${p.aliases.join(' ، ')}\n`;
       }
     });
     text += `\n💡 /add_product اسم حد — لإضافة منتج`;
-    await sendTo(String(msg.chat.id), text);
+    await sendPlain(String(msg.chat.id), text);
   });
 
   // /add_product [اسم المنتج] [maxCpp]
@@ -234,13 +234,13 @@ function initBot() {
     const maxCpp = parseFloat(tokens[tokens.length - 1]);
     const name = tokens.slice(0, -1).join(' ');
     if (isNaN(maxCpp) || !name) {
-      return sendTo(chatId, '❌ الصيغة: /add_product اسم-المنتج الحد\nمثال: /add_product خرز جديد 60');
+      return sendPlain(chatId, '❌ الصيغة: /add_product اسم-المنتج الحد\nمثال: /add_product خرز جديد 60');
     }
     const store = require('../configStore');
     const result = store.addProduct(name, maxCpp);
-    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
-    await sendTo(chatId,
-      `✅ *تم إضافة المنتج*\n\n📦 ${result.name}\n💰 Max CPP: ${result.maxCpp} ج.م\n\n` +
+    if (!result.ok) return sendPlain(chatId, `❌ ${result.error}`);
+    await sendPlain(chatId,
+      `✅ تم إضافة المنتج\n\n📦 ${result.name}\n💰 Max CPP: ${result.maxCpp} ج.م\n\n` +
       `إجمالي المنتجات: ${result.total}\n🔄 المراقبة تشمله من الدورة القادمة تلقائياً.`
     );
   });
@@ -252,13 +252,13 @@ function initBot() {
     const maxCpp = parseFloat(tokens[tokens.length - 1]);
     const name = tokens.slice(0, -1).join(' ');
     if (isNaN(maxCpp) || !name) {
-      return sendTo(chatId, '❌ الصيغة: /edit_cpp اسم-المنتج الحد-الجديد\nمثال: /edit_cpp خرز 65');
+      return sendPlain(chatId, '❌ الصيغة: /edit_cpp اسم-المنتج الحد-الجديد\nمثال: /edit_cpp خرز 65');
     }
     const store = require('../configStore');
     const result = store.editCpp(name, maxCpp);
-    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
-    await sendTo(chatId,
-      `✅ *تم تعديل الحد*\n\n📦 ${result.name}\n💰 ${result.oldCpp} ج.م ← *${result.maxCpp} ج.م*`
+    if (!result.ok) return sendPlain(chatId, `❌ ${result.error}`);
+    await sendPlain(chatId,
+      `✅ تم تعديل الحد\n\n📦 ${result.name}\n💰 ${result.oldCpp} ج.م ← ${result.maxCpp} ج.م`
     );
   });
 
@@ -268,15 +268,15 @@ function initBot() {
     const name = match[1].trim();
     const store = require('../configStore');
     const product = store.findProduct(name);
-    if (!product) return sendTo(chatId, `❌ لم أجد منتجاً باسم "${name}"`);
+    if (!product) return sendPlain(chatId, `❌ لم أجد منتجاً باسم "${name}"`);
 
     const ctxKey = storeContext({ cfgAction: 'rmprod', name: product.name });
     const keyboard = { inline_keyboard: [[
       { text: '✅ تأكيد الحذف', callback_data: `cfgstore:${ctxKey}` },
       { text: '❌ إلغاء', callback_data: 'cancel' }
     ]]};
-    await sendTo(chatId,
-      `⚠️ *تأكيد حذف المنتج*\n\n📦 ${product.name} (Max CPP: ${product.maxCpp})\n\n` +
+    await sendPlain(chatId,
+      `⚠️ تأكيد حذف المنتج\n\n📦 ${product.name} (Max CPP: ${product.maxCpp})\n\n` +
       `سيتوقف النظام عن مراقبة حملاته.`,
       { reply_markup: keyboard }
     );
@@ -287,16 +287,16 @@ function initBot() {
     const chatId = String(msg.chat.id);
     const parts = match[1].split('=');
     if (parts.length !== 2) {
-      return sendTo(chatId,
+      return sendPlain(chatId,
         '❌ الصيغة: /add_alias اسم-المنتج = الاسم-البديل\n' +
         'مثال: /add_alias كريم ازالة = wart cream'
       );
     }
     const store = require('../configStore');
     const result = store.addAlias(parts[0].trim(), parts[1].trim());
-    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
-    await sendTo(chatId,
-      `✅ *تم إضافة اسم بديل*\n\n📦 ${result.name}\n➕ "${result.alias}"\n\n` +
+    if (!result.ok) return sendPlain(chatId, `❌ ${result.error}`);
+    await sendPlain(chatId,
+      `✅ تم إضافة اسم بديل\n\n📦 ${result.name}\n➕ "${result.alias}"\n\n` +
       `الأسماء البديلة الآن: ${result.aliases.join(' ، ')}\n` +
       `🔄 أي حملة تحتوي أياً منها ستُنسب لهذا المنتج من الدورة القادمة.`
     );
@@ -307,17 +307,17 @@ function initBot() {
     const chatId = String(msg.chat.id);
     const parts = match[1].split('=');
     if (parts.length !== 2) {
-      return sendTo(chatId,
+      return sendPlain(chatId,
         '❌ الصيغة: /remove_alias اسم-المنتج = الاسم-البديل\n' +
         'مثال: /remove_alias كريم ازالة = wart cream'
       );
     }
     const store = require('../configStore');
     const result = store.removeAlias(parts[0].trim(), parts[1].trim());
-    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
+    if (!result.ok) return sendPlain(chatId, `❌ ${result.error}`);
     const remaining = result.aliases.length ? result.aliases.join(' ، ') : 'لا يوجد';
-    await sendTo(chatId,
-      `✅ *تم حذف الاسم البديل*\n\n📦 ${result.name}\n➖ "${result.alias}"\n\n` +
+    await sendPlain(chatId,
+      `✅ تم حذف الاسم البديل\n\n📦 ${result.name}\n➖ "${result.alias}"\n\n` +
       `الأسماء البديلة المتبقية: ${remaining}`
     );
   });
@@ -326,13 +326,13 @@ function initBot() {
   bot.onText(/\/accounts/, async (msg) => {
     const store = require('../configStore');
     const acc = store.getAccounts();
-    let text = `🏦 *الحسابات المسجلة*\n\n`;
-    text += `🔵 *Meta (${acc.meta.length}):*\n`;
+    let text = `🏦 الحسابات المسجلة\n\n`;
+    text += `🔵 Meta (${acc.meta.length}):\n`;
     acc.meta.forEach(id => { text += `• ${id}\n`; });
-    text += `\n🎵 *TikTok (${acc.tiktok.length}):*\n`;
+    text += `\n🎵 TikTok (${acc.tiktok.length}):\n`;
     acc.tiktok.forEach(id => { text += `• ${id}\n`; });
     text += `\n💡 /add_account meta ID أو /add_account tiktok ID`;
-    await sendTo(String(msg.chat.id), text);
+    await sendPlain(String(msg.chat.id), text);
   });
 
   // /add_account [meta|tiktok] [ID]
@@ -340,9 +340,9 @@ function initBot() {
     const chatId = String(msg.chat.id);
     const store = require('../configStore');
     const result = store.addAccount(match[1], match[2]);
-    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
-    await sendTo(chatId,
-      `✅ *تم إضافة حساب ${result.platform}*\n\n🆔 ${result.id}\n` +
+    if (!result.ok) return sendPlain(chatId, `❌ ${result.error}`);
+    await sendPlain(chatId,
+      `✅ تم إضافة حساب ${result.platform}\n\n🆔 ${result.id}\n` +
       `إجمالي حسابات ${result.platform}: ${result.total}\n\n` +
       `🔄 المراقبة تشمله من الدورة القادمة — جرّب /check للفحص الفوري.`
     );
@@ -358,8 +358,8 @@ function initBot() {
       { text: '✅ تأكيد الإزالة', callback_data: `cfgstore:${ctxKey}` },
       { text: '❌ إلغاء', callback_data: 'cancel' }
     ]]};
-    await sendTo(chatId,
-      `⚠️ *تأكيد إزالة حساب ${platform === 'meta' ? 'Meta' : 'TikTok'}*\n\n🆔 ${id}\n\n` +
+    await sendPlain(chatId,
+      `⚠️ تأكيد إزالة حساب ${platform === 'meta' ? 'Meta' : 'TikTok'}\n\n🆔 ${id}\n\n` +
       `سيتوقف النظام عن مراقبة حملاته.`,
       { reply_markup: keyboard }
     );
@@ -369,17 +369,17 @@ function initBot() {
   bot.onText(/\/settings/, async (msg) => {
     const store = require('../configStore');
     const s = store.getSettingsView();
-    let text = `⚙️ *إعدادات النظام الحالية*\n\n`;
+    let text = `⚙️ إعدادات النظام الحالية\n\n`;
     text += `📦 المنتجات: ${s.products}\n`;
     text += `🔵 حسابات Meta: ${s.metaAccounts.length}\n`;
     text += `🎵 حسابات TikTok: ${s.tiktokAdvertisers.length}\n\n`;
-    text += `⏱ الفحص كل: ${s.intervalMin} دقيقة _(ثابت)_\n`;
+    text += `⏱ الفحص كل: ${s.intervalMin} دقيقة (ثابت)\n`;
     text += `🔕 cooldown: ${s.cooldownHours} ساعة\n`;
     text += `📊 buffer: ${s.bufferPct}% من Max CPP\n`;
-    text += `🛒 min-purchases: ${s.minPurchases}\n`;
-    text += `💸 high-spend: ${s.highSpendPct}%\n\n`;
+    text += `🛒 min_purchases: ${s.minPurchases}\n`;
+    text += `💸 high_spend: ${s.highSpendPct}%\n\n`;
     text += `💡 للتعديل: /set الإعداد القيمة\nمثال: /set cooldown 4`;
-    await sendTo(String(msg.chat.id), text);
+    await sendPlain(String(msg.chat.id), text);
   });
 
   // /set [إعداد] [قيمة]
@@ -387,9 +387,9 @@ function initBot() {
     const chatId = String(msg.chat.id);
     const store = require('../configStore');
     const result = store.setSetting(match[1], match[2]);
-    if (!result.ok) return sendTo(chatId, `❌ ${result.error}`);
-    await sendTo(chatId,
-      `✅ *تم تحديث الإعداد*\n\n${result.label}: *${result.value} ${result.unit}*\n\n` +
+    if (!result.ok) return sendPlain(chatId, `❌ ${result.error}`);
+    await sendPlain(chatId,
+      `✅ تم تحديث الإعداد\n\n${result.label}: ${result.value} ${result.unit}\n\n` +
       `🔄 مُطبَّق فوراً على الدورات القادمة.`
     );
   });
@@ -521,20 +521,22 @@ async function handleConfigStoreCallback(query) {
 
   const store = require('../configStore');
 
+  const b = getBot();
+
   if (ctx.cfgAction === 'rmprod') {
     const result = store.removeProduct(ctx.name);
     const text = result.ok
-      ? `✅ *تم حذف المنتج*\n\n📦 ${result.name}\nالمنتجات المتبقية: ${result.remaining}`
+      ? `✅ تم حذف المنتج\n\n📦 ${result.name}\nالمنتجات المتبقية: ${result.remaining}`
       : `❌ ${result.error}`;
-    return editMessage(chatId, messageId, text);
+    return b.editMessageText(text, { chat_id: chatId, message_id: messageId }).catch(() => sendPlain(chatId, text));
   }
 
   if (ctx.cfgAction === 'rmacct') {
     const result = store.removeAccount(ctx.platform, ctx.id);
     const text = result.ok
-      ? `✅ *تمت إزالة حساب ${result.platform}*\n\n🆔 ${result.id}\nالحسابات المتبقية: ${result.remaining}`
+      ? `✅ تمت إزالة حساب ${result.platform}\n\n🆔 ${result.id}\nالحسابات المتبقية: ${result.remaining}`
       : `❌ ${result.error}`;
-    return editMessage(chatId, messageId, text);
+    return b.editMessageText(text, { chat_id: chatId, message_id: messageId }).catch(() => sendPlain(chatId, text));
   }
 
   return sendTo(chatId, '❌ إجراء غير معروف.');
@@ -565,6 +567,12 @@ async function broadcast(text, options = {}) {
 async function sendTo(chatId, text, options = {}) {
   const b = getBot();
   return b.sendMessage(chatId, text, { parse_mode: 'Markdown', ...options });
+}
+
+// إرسال نص عادي بدون Markdown — مضمون الوصول (لرسائل فيها _ أو * أو أسماء ديناميكية)
+async function sendPlain(chatId, text, options = {}) {
+  const b = getBot();
+  return b.sendMessage(chatId, text, { ...options, parse_mode: undefined });
 }
 
 // تعديل رسالة موجودة
