@@ -13,10 +13,12 @@ const config = {
 
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN,
+    // يدعم أكثر من ID مفصولين بفاصلة في أي من المتغيرين
+    // مثال: TELEGRAM_MEDIA_BUYER_CHAT_ID=111111,222222,333333
     chatIds: [
-      process.env.TELEGRAM_USER_CHAT_ID,
-      process.env.TELEGRAM_MEDIA_BUYER_CHAT_ID
-    ].filter(Boolean)
+      ...(process.env.TELEGRAM_USER_CHAT_ID || '').split(','),
+      ...(process.env.TELEGRAM_MEDIA_BUYER_CHAT_ID || '').split(',')
+    ].map(s => s.trim()).filter(Boolean)
   },
 
   anthropic: {

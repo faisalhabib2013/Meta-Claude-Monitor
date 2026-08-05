@@ -88,6 +88,9 @@ function initBot() {
 /remove_account meta أو tiktok ثم ID — إزالة حساب
 /settings — عرض إعدادات المراقبة
 /set إعداد قيمة — تعديل إعداد
+/users — قائمة مستخدمي البوت
+/add_user ID — إضافة ميديا باير جديد
+/remove_user ID — حذف مستخدم
 
 🔄 النظام
 /check — تشغيل دورة فحص فورية الآن
@@ -322,6 +325,68 @@ function initBot() {
     );
   });
 
+  // /users — قائمة مستخدمي البوت
+  bot.onText(/\/users/, async (msg) => {
+    const chatId = String(msg.chat.id);
+    const store = require('../configStore');
+    if (!store.isAuthorized(chatId)) return; // غير مصرح — تجاهل صامت
+    const users = store.getUsers();
+    let text = `👥 مستخدمو البوت (${users.length})\n\n`;
+    users.forEach((u, i) => {
+      const you = u === chatId ? ' ← أنت' : '';
+      text += `${i + 1}. ${u}${you}\n`;
+    });
+    text += `\n💡 /add_user ID — لإضافة ميديا باير جديد\n`;
+    text += `(المستخدم الجديد لازم يبعت /start للبوت أولاً)`;
+    await sendPlain(chatId, text);
+  });
+
+  // /add_user [chat_id] — إضافة مستخدم جديد (للمصرح لهم فقط)
+  bot.onText(/\/add_user (-?\d+)/, async (msg, match) => {
+    const chatId = String(msg.chat.id);
+    const store = require('../configStore');
+    if (!store.isAuthorized(chatId)) return;
+    const result = store.addUser(match[1]);
+    if (!result.ok) return sendPlain(chatId, `❌ ${result.error}`);
+
+    await sendPlain(chatId,
+      `✅ تم إضافة مستخدم جديد\n\n🆔 ${result.chatId}\n` +
+      `إجمالي المستخدمين: ${result.total}\n\n` +
+      `📬 سيستقبل كل التنبيهات والتقارير ويتحكم بالأزرار فوراً.\n` +
+      `⚠️ تأكد أنه أرسل /start للبوت وإلا لن تصله الرسائل.`
+    );
+
+    // ترحيب بالمستخدم الجديد
+    try {
+      await sendPlain(result.chatId,
+        `👋 أهلاً! تم إضافتك لنظام مراقبة إعلانات Meta & TikTok.\n\n` +
+        `ستصلك التنبيهات والتقارير تلقائياً.\n` +
+        `اكتب /help لعرض كل الأوامر المتاحة.`
+      );
+    } catch (e) {
+      await sendPlain(chatId, `⚠️ ملحوظة: لم أستطع مراسلة ${result.chatId} — غالباً لم يبعت /start للبوت بعد.`);
+    }
+  });
+
+  // /remove_user [chat_id] — بتأكيد (للمصرح لهم فقط)
+  bot.onText(/\/remove_user (-?\d+)/, async (msg, match) => {
+    const chatId = String(msg.chat.id);
+    const store = require('../configStore');
+    if (!store.isAuthorized(chatId)) return;
+    const id = match[1];
+    if (id === chatId) return sendPlain(chatId, '❌ لا يمكنك حذف نفسك — اطلب من مستخدم آخر.');
+
+    const ctxKey = storeContext({ cfgAction: 'rmuser', id });
+    const keyboard = { inline_keyboard: [[
+      { text: '✅ تأكيد الحذف', callback_data: `cfgstore:${ctxKey}` },
+      { text: '❌ إلغاء', callback_data: 'cancel' }
+    ]]};
+    await sendPlain(chatId,
+      `⚠️ تأكيد حذف مستخدم\n\n🆔 ${id}\n\nسيتوقف عن استقبال التنبيهات والتحكم بالبوت.`,
+      { reply_markup: keyboard }
+    );
+  });
+
   // /accounts — قائمة الحسابات
   bot.onText(/\/accounts/, async (msg) => {
     const store = require('../configStore');
@@ -527,6 +592,14 @@ async function handleConfigStoreCallback(query) {
     const result = store.removeProduct(ctx.name);
     const text = result.ok
       ? `✅ تم حذف المنتج\n\n📦 ${result.name}\nالمنتجات المتبقية: ${result.remaining}`
+      : `❌ ${result.error}`;
+    return b.editMessageText(text, { chat_id: chatId, message_id: messageId }).catch(() => sendPlain(chatId, text));
+  }
+
+  if (ctx.cfgAction === 'rmuser') {
+    const result = store.removeUser(ctx.id);
+    const text = result.ok
+      ? `✅ تم حذف المستخدم\n\n🆔 ${result.chatId}\nالمستخدمون المتبقون: ${result.remaining}`
       : `❌ ${result.error}`;
     return b.editMessageText(text, { chat_id: chatId, message_id: messageId }).catch(() => sendPlain(chatId, text));
   }

@@ -11,6 +11,7 @@ const K_PRODUCTS = 'store:products';
 const K_META = 'store:meta_accounts';
 const K_TT = 'store:tiktok_advertisers';
 const K_MON = 'store:monitor';
+const K_USERS = 'store:telegram_users';
 
 function db() { return require('./db'); }
 
@@ -51,11 +52,19 @@ function init() {
     }
     applyTiktokAdvertisers(tt);
 
+    // مستخدمو Telegram (المتابعون والمتحكمون)
+    let users = readJsonState(K_USERS);
+    if (!users || !Array.isArray(users) || users.length === 0) {
+      users = [...(config.telegram.chatIds || [])];
+      db().setState(K_USERS, JSON.stringify(users));
+    }
+    applyTelegramUsers(users);
+
     // إعدادات المراقبة
     const mon = readJsonState(K_MON) || {};
     applyMonitorSettings(mon);
 
-    logger.success(`ConfigStore ready — ${products.length} منتج | Meta: ${meta.length} | TikTok: ${tt.length}`);
+    logger.success(`ConfigStore ready — ${products.length} منتج | Meta: ${meta.length} | TikTok: ${tt.length} | Users: ${users.length}`);
   } catch (err) {
     logger.error('ConfigStore init failed', err);
   }
@@ -252,6 +261,49 @@ function removeAccount(platform, id) {
   return { ok: false, error: 'المنصة يجب أن تكون meta أو tiktok' };
 }
 
+// تطبيق قائمة المستخدمين على config (البث يقرأ منها مباشرة)
+function applyTelegramUsers(list) {
+  config.telegram.chatIds.length = 0;
+  config.telegram.chatIds.push(...list.map(String));
+}
+
+// ==================== مستخدمو Telegram ====================
+
+function getUsers() {
+  return (readJsonState(K_USERS) || []).map(String);
+}
+
+function isAuthorized(chatId) {
+  return getUsers().includes(String(chatId));
+}
+
+function addUser(chatId) {
+  chatId = String(chatId).trim();
+  if (!/^-?\d{5,15}$/.test(chatId)) return { ok: false, error: 'معرف Telegram غير صالح (أرقام فقط)' };
+
+  const users = getUsers();
+  if (users.includes(chatId)) return { ok: false, error: 'المستخدم مسجل بالفعل' };
+
+  users.push(chatId);
+  db().setState(K_USERS, JSON.stringify(users));
+  applyTelegramUsers(users);
+  logger.success(`Telegram user added: ${chatId}`);
+  return { ok: true, chatId, total: users.length };
+}
+
+function removeUser(chatId) {
+  chatId = String(chatId).trim();
+  const users = getUsers();
+  if (!users.includes(chatId)) return { ok: false, error: 'المستخدم غير مسجل أصلاً' };
+  if (users.length <= 1) return { ok: false, error: 'لا يمكن حذف آخر مستخدم — النظام سيفقد كل متابعيه' };
+
+  const filtered = users.filter(u => u !== chatId);
+  db().setState(K_USERS, JSON.stringify(filtered));
+  applyTelegramUsers(filtered);
+  logger.warn(`Telegram user removed: ${chatId}`);
+  return { ok: true, chatId, remaining: filtered.length };
+}
+
 // ==================== إعدادات المراقبة ====================
 
 const SETTING_DEFS = {
@@ -298,5 +350,6 @@ module.exports = {
   init, getProducts, addProduct, editCpp, removeProduct, findProduct,
   addAlias, removeAlias,
   getAccounts, addAccount, removeAccount,
+  getUsers, addUser, removeUser, isAuthorized,
   setSetting, getSettingsView, SETTING_DEFS
 };
